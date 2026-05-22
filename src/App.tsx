@@ -1,5 +1,5 @@
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
 import rawPlaces from "./places.json";
 import { resultHaptic, spinHaptic } from "./telegram";
@@ -115,7 +115,11 @@ function wheelGradient(count: number, segmentAngle: number) {
     const end = (i + 1) * segmentAngle;
     stops.push(`${color} ${start}deg ${end}deg`);
   }
-  return `conic-gradient(from ${-90 - segmentAngle / 2}deg, ${stops.join(", ")})`;
+  return `conic-gradient(from ${-segmentAngle / 2}deg, ${stops.join(", ")})`;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
 }
 
 function App() {
@@ -124,6 +128,9 @@ function App() {
     () => wheelGradient(places.length, segmentAngle),
     [segmentAngle],
   );
+  // Шкалируем шрифт и высоту подписи под ширину сектора:
+  // 24° (≈14 мест) — базовый размер, шире → крупнее, уже → меньше.
+  const labelScale = clamp(segmentAngle / 24, 0.85, 1.55);
   const [phase, setPhase] = useState<Phase>("idle");
   const [rotation, setRotation] = useState(0);
   const [spinDuration, setSpinDuration] = useState(DEFAULT_SPIN_DURATION_MS);
@@ -214,7 +221,13 @@ function App() {
                   animate={{ rotate: rotation }}
                   className="wheel"
                   initial={{ rotate: 0 }}
-                  style={{ backgroundImage: wheelBackground, x: "-50%" }}
+                  style={
+                    {
+                      backgroundImage: wheelBackground,
+                      x: "-50%",
+                      "--label-scale": labelScale,
+                    } as CSSProperties
+                  }
                   transition={{
                     duration: spinDuration / 1000,
                     ease: [0.08, 0.88, 0.16, 1],
@@ -276,7 +289,7 @@ function Winner({ onSpin, phase, place }: WinnerProps) {
             <PlaceDetails place={place} />
             <div className="place-links">
               {place.url ? (
-                <a href={place.url} rel="noreferrer" target="_blank" className="place-button">
+                <a href={place.url} rel="noreferrer" target="_blank" className="place-button primary">
                   Карточка заведения
                 </a>
               ) : null}
@@ -311,9 +324,7 @@ function WheelLabel({ angle, index, phase, place, selected }: WheelLabelProps) {
   return (
     <div
       className={`wheel-label wheel-label-${index % 2}`}
-      style={{
-        transform: `rotate(${angle - 90}deg) translateX(calc(var(--wheel-size) * 0.235))`,
-      }}
+      style={{ "--wheel-label-angle": `${angle - 90}deg` } as CSSProperties}
     >
       {selected && phase !== "result" ? (
         <motion.span
